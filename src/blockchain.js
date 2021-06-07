@@ -75,6 +75,8 @@ class Blockchain {
 
       self.chain.push(block)
 
+      await self.validateChain()
+
       resolve(block)
     })
   }
