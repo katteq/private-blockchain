@@ -1,6 +1,10 @@
 const { Block } = require('./block')
-const SHA256 = require('crypto-js/sha256')
-const { calculateHash } = require('./calculateHash')
+const { hexEncode } = require('./hex')
+
+jest.mock('./date', () => ({
+  ...jest.requireActual('./date'),
+  getCurrentTimestamp: () => 1623055197,
+}))
 
 describe('block', () => {
   it('should create a new block', () => {
@@ -8,7 +12,10 @@ describe('block', () => {
     const block = new Block(data)
 
     expect(block.hash).toBeDefined()
-    expect(calculateHash(JSON.stringify(data))).toEqual(block.hash)
+    expect(block.timestamp).toBe('1623055197')
+    expect(block.previousBlockHash).toBeNull()
+    expect(block.height).toBe(0)
+    expect(block.body).toBe(hexEncode(JSON.stringify(data)))
   })
 
   it('should validate the block and return true if it is not tampered', async () => {
@@ -20,12 +27,11 @@ describe('block', () => {
 
   it('should validate the block and return false if it is tampered', async () => {
     expect.assertions(2)
-    const data = 'block to validate'
-    const block = new Block(data)
+    const block = new Block('block to validate')
 
     await expect(block.validate()).resolves.toEqual(true)
 
-    block.hash = calculateHash(' changed data')
+    block.height = 4
 
     await expect(block.validate()).rejects.toEqual(
       'The block has been tampered.',
@@ -56,7 +62,6 @@ describe('block', () => {
   })
 
   it('should reject for a genesis block data', async () => {
-    expect.assertions(1)
     const data = 'genesis block'
     const block = new Block(data)
 

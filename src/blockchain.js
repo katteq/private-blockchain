@@ -12,6 +12,7 @@ const SHA256 = require('crypto-js/sha256')
 const BlockClass = require('./block')
 const bitcoinMessage = require('bitcoinjs-message')
 const { getCurrentTimestamp } = require('./date')
+const { calculateHash } = require('./calculateHash')
 
 class Blockchain {
   /**
@@ -65,19 +66,25 @@ class Blockchain {
     let self = this
     return new Promise(async (resolve, reject) => {
       self.height += 1
-      const previousBlock =
-        this.chain.length > 0 ? self.chain[this.chain.length - 1] : null
-
-      if (previousBlock) {
-        block.previousBlockHash = previousBlock.hash
-      }
       block.height = self.height
 
-      self.chain.push(block)
+      if (this.chain.length === 0) {
+        block.previousBlockHash = null
+      } else {
+        const previousBlock = self.chain[this.chain.length - 1]
+        block.previousBlockHash = previousBlock.hash
+      }
 
-      await self.validateChain()
+      block.hash = null
+      block.hash = calculateHash(block)
 
-      resolve(block)
+      try {
+        self.chain.push(block)
+        await self.validateChain()
+        resolve(block)
+      } catch (error) {
+        reject(error)
+      }
     })
   }
 
@@ -121,8 +128,9 @@ class Blockchain {
       if (timelapse < 5) {
         const verification = bitcoinMessage.verify(message, address, signature)
         if (verification) {
-          const block = new BlockClass.Block({ owner: address, star })
-          self._addBlock(block)
+          const block = await self._addBlock(
+            new BlockClass.Block({ owner: address, star }),
+          )
           resolve(block)
         } else {
           reject('Message verification failed.')

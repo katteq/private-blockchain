@@ -33,13 +33,23 @@ describe('blockchain', () => {
     expect(genesisBlock.previousBlockHash).toBeNull()
     expect(genesisBlock.getBData()).resolves.toEqual({})
 
-    const newBlock = new Block('Second block')
+    const addedBlock1 = await blockchain._addBlock(new Block('Block 1'))
 
-    const addedBlock = await blockchain._addBlock(newBlock)
-
-    expect(addedBlock.previousBlockHash).toBe(genesisBlock.hash)
-    expect(addedBlock.height).toBe(1)
+    expect(addedBlock1.previousBlockHash).toBe(genesisBlock.hash)
+    expect(addedBlock1.height).toBe(1)
     expect(blockchain.height).toBe(1)
+
+    const addedBlock2 = await blockchain._addBlock(new Block('Block 2'))
+
+    expect(addedBlock2.previousBlockHash).toBe(addedBlock1.hash)
+    expect(addedBlock2.height).toBe(2)
+    expect(blockchain.height).toBe(2)
+
+    const addedBlock3 = await blockchain._addBlock(new Block('Block 3'))
+
+    expect(addedBlock3.previousBlockHash).toBe(addedBlock2.hash)
+    expect(addedBlock3.height).toBe(3)
+    expect(blockchain.height).toBe(3)
   })
 
   it('should request message ownership verification', async () => {
@@ -57,7 +67,7 @@ describe('blockchain', () => {
       address,
     )
     const signature = signMessage(message, testAddress1.privateKey)
-
+    console.log(address, signature.toString('base64'), message)
     const star = stars[0]
     const block = await blockchain.submitStar(address, message, signature, star)
 
@@ -216,25 +226,27 @@ describe('blockchain', () => {
     await blockchain.submitStar(testAddress1.address, message, signature, star2)
     await blockchain.submitStar(testAddress1.address, message, signature, star3)
 
+    expect(blockchain.validateChain()).resolves.toEqual([])
+
     const blocks = await blockchain.getStarsByWalletAddress(
       testAddress1.address,
     )
 
+    const foreignHash = calculateHash('changed data')
     /** Simulate block data tampering */
-    blockchain.chain[1].hash = calculateHash('changed data')
+    const correctHash = blockchain.chain[1].hash
+    blockchain.chain[1].hash = foreignHash
 
     await expect(blockchain.validateChain()).resolves.toEqual([
       {
         error: 'The block has been tampered.',
-        hash: 'ae97e9cf6ee16d730d52e197fb97e96348d22a66b18e72e2138724358b6b1ea0',
-        previousHash:
-          '6669a39946e53158d68e9b69a13947be7c45cc866a89a85aa0a1624166acf880',
+        hash: foreignHash,
+        previousHash: blockchain.chain[1].previousBlockHash,
       },
       {
         error: 'Invalid block previous hash',
-        hash: '5acfe7abe0fa2ff059417598fbfcf6f98ad57be4e4545ea94c66ec72fb002401',
-        previousHash:
-          '1eb41e282704dfa163b09b8c625e2ddf79f0b18c53ea6ae9390c3b826754b2bd',
+        hash: blockchain.chain[2].hash,
+        previousHash: blockchain.chain[2].previousBlockHash,
       },
     ])
   })

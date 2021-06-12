@@ -16,12 +16,12 @@ const { hexEncode, hexDecode } = require('./hex')
 class Block {
   // Constructor - argument data will be the object containing the transaction data
   constructor(data) {
-    const preparedData = JSON.stringify(data)
-    this.hash = calculateHash(preparedData) // Hash of the block
+    this.hash = null
     this.height = 0 // Block Height (consecutive number of each block)
-    this.body = hexEncode(preparedData) // Will contain the transactions stored in the block, by default it will encode the data
-    this.time = getCurrentTimestamp().toString() // Timestamp for the Block creation
+    this.body = hexEncode(JSON.stringify(data)) // Will contain the transactions stored in the block, by default it will encode the data
+    this.timestamp = getCurrentTimestamp().toString() // Timestamp for the Block creation
     this.previousBlockHash = null // Reference to the previous Block Hash
+    this.hash = calculateHash(this) // Hash of the block
   }
 
   /**
@@ -40,17 +40,21 @@ class Block {
     let self = this
     return new Promise((resolve, reject) => {
       // Save in auxiliary variable the current block hash
-      const hash = self.hash
+      const oldHash = self.hash
+      self.hash = null
+
       // Recalculate the hash of the Block
-      const hashRecalculated = calculateHash(hexDecode(self.body))
+      const newHash = calculateHash(self)
+
+      self.hash = oldHash
       // Comparing if the hashes changed
 
-      if (hashRecalculated === hash) {
+      if (newHash === oldHash) {
         // Returning the Block is valid
-        return resolve(true)
+        resolve(true)
       } else {
         // Returning the Block is not valid
-        return reject('The block has been tampered.')
+        reject('The block has been tampered.')
       }
     })
   }
@@ -68,7 +72,7 @@ class Block {
     const self = this
     return new Promise(function (resolve, reject) {
       if (self.previousBlockHash === null) {
-        return resolve({})
+        resolve({})
       }
       // Getting the encoded data saved in the Block
       const body = self.body
@@ -78,7 +82,7 @@ class Block {
       const data = JSON.parse(decoded)
       // Resolve with the data if the object isn't the Genesis block
 
-      return resolve(data)
+      resolve(data)
     })
   }
 }
