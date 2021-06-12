@@ -67,7 +67,6 @@ describe('blockchain', () => {
       address,
     )
     const signature = signMessage(message, testAddress1.privateKey)
-    console.log(address, signature.toString('base64'), message)
     const star = stars[0]
     const block = await blockchain.submitStar(address, message, signature, star)
 
